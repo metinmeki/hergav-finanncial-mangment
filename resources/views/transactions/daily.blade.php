@@ -26,18 +26,14 @@
         </div>
         <div style="display: flex; gap: 8px;">
             <button type="submit" class="btn-primary">{{ $isRTL ? 'عرض' : 'View' }}</button>
-            <!-- Quick filters -->
-            <a href="?date_from={{ today()->format('Y-m-d') }}&date_to={{ today()->format('Y-m-d') }}"
-               class="btn-secondary">{{ $isRTL ? 'اليوم' : 'Today' }}</a>
-            <a href="?date_from={{ today()->subDays(6)->format('Y-m-d') }}&date_to={{ today()->format('Y-m-d') }}"
-               class="btn-secondary">{{ $isRTL ? '7 أيام' : '7 days' }}</a>
-            <a href="?date_from={{ today()->subDays(29)->format('Y-m-d') }}&date_to={{ today()->format('Y-m-d') }}"
-               class="btn-secondary">{{ $isRTL ? '30 يوم' : '30 days' }}</a>
+            <a href="?date_from={{ today()->format('Y-m-d') }}&date_to={{ today()->format('Y-m-d') }}" class="btn-secondary">{{ $isRTL ? 'اليوم' : 'Today' }}</a>
+            <a href="?date_from={{ today()->subDays(6)->format('Y-m-d') }}&date_to={{ today()->format('Y-m-d') }}" class="btn-secondary">{{ $isRTL ? '7 أيام' : '7 days' }}</a>
+            <a href="?date_from={{ today()->subDays(29)->format('Y-m-d') }}&date_to={{ today()->format('Y-m-d') }}" class="btn-secondary">{{ $isRTL ? '30 يوم' : '30 days' }}</a>
         </div>
     </form>
 </div>
 
-<!-- Summary cards -->
+<!-- Summary -->
 <div class="grid-3" style="margin-bottom: 24px;">
     <div class="stat-card" style="border-left: 4px solid #16a34a; border-right: 4px solid #16a34a;">
         <div class="label">{{ $isRTL ? 'إجمالي الإيداعات' : 'Total Deposits' }}</div>
@@ -88,7 +84,7 @@
                     <th>TRY</th>
                     <th>{{ $trans['before'] }}</th>
                     <th>{{ $trans['after'] }}</th>
-                    <th>{{ $trans['sender'] }}</th>
+                    <th>{{ $isRTL ? 'اسم المرسل / المستلم' : 'Sender / Receiver' }}</th>
                     <th>{{ $trans['notes'] }}</th>
                     <th>{{ $trans['cashier'] }}</th>
                 </tr>
@@ -115,9 +111,11 @@
                     <td class="{{ $tx->balance_after < 0 ? 'amount-negative' : 'amount-positive' }}">
                         $ {{ number_format($tx->balance_after, 2) }}
                     </td>
-                    <td style="color: #666; font-size: 12px;">
-                        {{ $tx->sender_name ?? '—' }}
-                        {{ $tx->sender_phone ? '(' . $tx->sender_phone . ')' : '' }}
+                    <td>
+                        <div style="font-size: 13px; font-weight: 600; color: #1a3c5e;">{{ $tx->sender_name ?? '—' }}</div>
+                        @if($tx->sender_phone)
+                        <div style="font-size: 12px; color: #999;">{{ $tx->sender_phone }}</div>
+                        @endif
                     </td>
                     <td style="color: #666; font-size: 12px;">{{ $tx->notes ?? '—' }}</td>
                     <td style="color: #666; font-size: 12px;">{{ $tx->createdBy->name }}</td>

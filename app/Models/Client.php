@@ -49,4 +49,13 @@ class Client extends Model
     {
         return $this->accounts()->where('currency_id', $currencyId)->first();
     }
+    public function bailmentAccounts()
+{
+    return $this->hasMany(BailmentAccount::class);
+}
+
+public function bailmentTransactions()
+{
+    return $this->hasMany(BailmentTransaction::class);
+}
 }

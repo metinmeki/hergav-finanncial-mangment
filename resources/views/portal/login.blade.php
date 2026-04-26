@@ -38,11 +38,14 @@
         </div>
 
         <div class="logo">
-            <div class="logo-icon">H</div>
-            <h1>Hergav</h1>
-            <p>{{ session('lang', 'en') === 'ar' ? 'بوابة العميل' : 'Client Portal' }}</p>
-            <span class="badge-portal">🔒 {{ session('lang', 'en') === 'ar' ? 'وصول آمن' : 'Secure Client Access' }}</span>
-        </div>
+    <div class="logo-icon">H</div>
+    <h1>Hergav</h1>
+    <p>{{ session('lang', 'en') === 'ar' ? 'بوابة العميل' : 'Client Portal' }}</p>
+    <div style="margin-top: 10px; display: inline-block; background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 6px 16px; font-size: 13px; color: #16a34a; font-weight: 600;">
+        Stock Exchange No: 84 &nbsp;|&nbsp; رقم البورصة: 84
+    </div>
+    <span class="badge-portal">🔒 {{ session('lang', 'en') === 'ar' ? 'وصول آمن' : 'Secure Client Access' }}</span>
+</div>
 
         @if($errors->any())
             <div class="error">{{ $errors->first() }}</div>

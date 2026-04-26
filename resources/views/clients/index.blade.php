@@ -20,31 +20,31 @@
                 <th>{{ $trans['client_code'] }}</th>
                 <th>{{ $trans['full_name'] }}</th>
                 <th>{{ $trans['phone'] }}</th>
-                <th>{{ $trans['usd_balance'] }}</th>
-                <th>{{ $trans['iqd_balance'] }}</th>
-                <th>{{ $trans['eur_balance'] }}</th>
-                <th>{{ $trans['try_balance'] }}</th>
+                @foreach($currencies as $currency)
+                <th style="color: {{ match($currency->code) { 'USD' => '#16a34a', 'IQD' => '#2563eb', 'EUR' => '#d97706', 'TRY' => '#7c3aed', default => '#666' } }};">
+                    {{ $currency->code }} {{ $isRTL ? 'الرصيد' : 'Balance' }}
+                </th>
+                @endforeach
                 <th>{{ $trans['status'] }}</th>
                 <th>{{ $trans['action'] }}</th>
             </tr>
         </thead>
         <tbody>
             @foreach($clients as $client)
-            @php
-                $usdAccount = $client->accounts->first();
-                $usdBal = $usdAccount ? $usdAccount->balance : 0;
-                $iqdBal = isset($rates['IQD']) ? $usdBal * $rates['IQD'] : 0;
-                $eurBal = isset($rates['EUR']) ? $usdBal * $rates['EUR'] : 0;
-                $tryBal = isset($rates['TRY']) ? $usdBal * $rates['TRY'] : 0;
-            @endphp
             <tr>
                 <td style="font-weight: 600; color: #1a3c5e;">{{ $client->code }}</td>
                 <td style="font-weight: 500;">{{ $client->full_name }}</td>
                 <td style="color: #666;">{{ $client->phone }}</td>
-                <td class="{{ $usdBal < 0 ? 'amount-negative' : 'amount-positive' }}">$ {{ number_format($usdBal, 2) }}</td>
-                <td class="{{ $iqdBal < 0 ? 'amount-negative' : '' }}" style="color: #2563eb;">IQD {{ number_format($iqdBal, 0) }}</td>
-                <td class="{{ $eurBal < 0 ? 'amount-negative' : '' }}" style="color: #d97706;">€ {{ number_format($eurBal, 2) }}</td>
-                <td class="{{ $tryBal < 0 ? 'amount-negative' : '' }}" style="color: #7c3aed;">₺ {{ number_format($tryBal, 2) }}</td>
+                @foreach($currencies as $currency)
+                @php
+                    $account = $client->accounts->where('currency_id', $currency->id)->first();
+                    $bal = $account ? $account->balance : 0;
+                @endphp
+                <td class="{{ $bal < 0 ? 'amount-negative' : ($bal > 0 ? 'amount-positive' : '') }}"
+                    style="{{ $bal == 0 ? 'color: #999;' : '' }}">
+                    {{ $currency->symbol }} {{ number_format($bal, $currency->code === 'IQD' ? 0 : 2) }}
+                </td>
+                @endforeach
                 <td><span class="badge {{ $client->status === 'active' ? 'badge-success' : 'badge-danger' }}">{{ $trans[$client->status] }}</span></td>
                 <td><a href="{{ route('clients.show', $client->id) }}" class="btn-primary" style="padding: 6px 14px; font-size: 12px;">{{ $trans['view'] }}</a></td>
             </tr>
@@ -53,6 +53,7 @@
     </table>
 </div>
 
+<!-- Add Client Modal -->
 <div id="addModal" class="modal-overlay" style="display: none;">
     <div class="modal">
         <h2>{{ $trans['add_client'] }}</h2>

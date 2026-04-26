@@ -103,6 +103,8 @@ class SetLanguage
                 'owes_company' => 'Owes company',
                 'zero_balance' => 'Zero balance',
                 'has_funds' => 'Has funds',
+                'transfer_in'  => 'Transfer In',
+'transfer_out' => 'Transfer Out',
             ],
             'ar' => [
                 'dashboard' => 'الرئيسية',
@@ -191,6 +193,8 @@ class SetLanguage
                 'owes_company' => 'مديون للشركة',
                 'zero_balance' => 'رصيد صفر',
                 'has_funds' => 'لديه رصيد',
+                'transfer_in'  => 'تحويل وارد',
+'transfer_out' => 'تحويل صادر',
             ],
         ];
 

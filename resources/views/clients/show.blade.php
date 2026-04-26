@@ -12,12 +12,14 @@
     </div>
     <div style="display: flex; gap: 10px;">
         <button onclick="window.print()" class="btn-secondary">🖨️ {{ $trans['print_statement'] }}</button>
+        <button onclick="document.getElementById('transferModal').style.display='flex'" class="btn-secondary" style="color: #2563eb; border-color: #2563eb;">
+            ⇄ {{ $isRTL ? 'تحويل' : 'Transfer' }}
+        </button>
         <button onclick="document.getElementById('txModal').style.display='flex'" class="btn-primary">+ {{ $trans['add_transaction'] }}</button>
     </div>
 </div>
 
 <div class="grid-2" style="margin-bottom: 20px;">
-    <!-- Client Info -->
     <div style="display: flex; flex-direction: column; gap: 16px;">
         <div class="card card-body">
             <h2 style="font-size: 15px; font-weight: 600; color: #1a3c5e; margin-bottom: 16px;">{{ $trans['client_info'] }}</h2>
@@ -34,15 +36,8 @@
                 <span style="font-size: 13px; font-weight: 500;">{{ $value }}</span>
             </div>
             @endforeach
-            <div style="margin-top: 12px; padding: 10px; background: #f8f9fa; border-radius: 8px; font-size: 12px; color: #666; line-height: 1.8;">
-                📈 {{ $trans['current_rates'] }}:<br>
-                1 USD = {{ number_format($rates['IQD'] ?? 0, 0) }} IQD<br>
-                1 USD = {{ number_format($rates['EUR'] ?? 0, 4) }} EUR<br>
-                1 USD = {{ number_format($rates['TRY'] ?? 0, 2) }} TRY
-            </div>
         </div>
 
-        <!-- Portal Access -->
         @if(!$client->login_enabled)
         <div class="card card-body" style="border-left: 4px solid #2563eb;">
             <h2 style="font-size: 15px; font-weight: 600; color: #1a3c5e; margin-bottom: 16px;">{{ $trans['enable_portal'] }}</h2>
@@ -84,20 +79,20 @@
         @foreach($balances as $code => $b)
         <div class="stat-card" style="border-left: 4px solid {{ $b['balance'] < 0 ? '#dc2626' : $b['color'] }}; border-right: 4px solid {{ $b['balance'] < 0 ? '#dc2626' : $b['color'] }}; display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <div class="label">{{ $trans[strtolower($code) . '_balance'] }}</div>
+                <div class="label">{{ $code }} {{ $isRTL ? 'الرصيد' : 'Balance' }}</div>
                 <div class="value" style="color: {{ $b['balance'] < 0 ? '#dc2626' : $b['color'] }};">
                     {{ $b['symbol'] }} {{ number_format($b['balance'], $code === 'IQD' ? 0 : 2) }}
                 </div>
             </div>
             <div style="padding: 8px 14px; border-radius: 8px; background: {{ $b['balance'] < 0 ? '#fef2f2' : '#f0fdf4' }}; font-size: 13px; font-weight: 600; color: {{ $b['balance'] < 0 ? '#dc2626' : $b['color'] }};">
-                {{ $b['balance'] < 0 ? $trans['owes_company'] : ($b['balance'] == 0 ? $trans['zero_balance'] : $trans['has_funds']) }}
+                {{ $b['balance'] < 0 ? ($isRTL ? '⚠ مدين' : '⚠ Debt') : ($b['balance'] == 0 ? ($isRTL ? 'صفر' : 'Zero') : ($isRTL ? '✓ رصيد' : '✓ Has funds')) }}
             </div>
         </div>
         @endforeach
     </div>
 </div>
 
-<!-- Transactions -->
+<!-- Transaction History -->
 <div class="card">
     <div style="padding: 20px 24px; border-bottom: 1px solid #f0f0f0;">
         <h2 style="font-size: 15px; font-weight: 600; color: #1a3c5e;">{{ $trans['transaction_history'] }}</h2>
@@ -107,40 +102,72 @@
             <tr>
                 <th>{{ $trans['date'] }}</th>
                 <th>{{ $trans['type'] }}</th>
-                <th>{{ $trans['original'] }}</th>
-                <th>USD</th>
-                <th>IQD</th>
-                <th>EUR</th>
-                <th>TRY</th>
-                <th>{{ $trans['sender'] }}</th>
+                <th>{{ $trans['currency'] }}</th>
+                <th>{{ $trans['amount'] }}</th>
+                <th>{{ $trans['before'] }}</th>
+                <th>{{ $trans['after'] }}</th>
+                <th>{{ $isRTL ? 'اسم المرسل / المستلم' : 'Sender / Receiver' }}</th>
                 <th>{{ $trans['notes'] }}</th>
                 <th>{{ $trans['cashier'] }}</th>
+                <th>{{ $isRTL ? 'وصل' : 'Receipt' }}</th>
             </tr>
         </thead>
         <tbody>
             @forelse($client->transactions->sortByDesc('created_at') as $tx)
             <tr>
-                <td style="color: #666; font-size: 12px;">{{ $tx->created_at->format('Y-m-d H:i') }}</td>
+                <td style="color: #666; font-size: 12px; white-space: nowrap;">{{ $tx->created_at->format('Y-m-d H:i') }}</td>
                 <td>
-                    <span class="badge {{ $tx->type === 'deposit' ? 'badge-success' : 'badge-danger' }}">
-                        {{ $trans[$tx->type] }}
-                    </span>
+                    @if($tx->type === 'deposit')
+                        <span class="badge badge-success">{{ $trans['deposit'] }}</span>
+                    @elseif($tx->type === 'withdrawal')
+                        <span class="badge badge-danger">{{ $trans['withdrawal'] }}</span>
+                    @elseif($tx->type === 'transfer_in')
+                        <span class="badge badge-info">
+                            ← {{ $isRTL ? 'تحويل وارد' : 'Transfer In' }}
+                            @if($tx->transferFromClient)
+                            <br><span style="font-size: 11px;">{{ $tx->transferFromClient->full_name }}</span>
+                            @endif
+                        </span>
+                    @elseif($tx->type === 'transfer_out')
+                        <span class="badge badge-warning">
+                            → {{ $isRTL ? 'تحويل صادر' : 'Transfer Out' }}
+                            @if($tx->transferToClient)
+                            <br><span style="font-size: 11px;">{{ $tx->transferToClient->full_name }}</span>
+                            @endif
+                        </span>
+                    @endif
                 </td>
-                <td style="font-weight: 600; color: #1a3c5e;">
-                    {{ $tx->original_currency }} {{ number_format($tx->original_amount, 2) }}
+                <td style="font-weight: 600; color: #1a3c5e;">{{ $tx->currency->code ?? $tx->original_currency }}</td>
+                <td class="{{ in_array($tx->type, ['withdrawal', 'transfer_out']) ? 'amount-negative' : 'amount-positive' }}">
+                    {{ $tx->currency->symbol ?? '' }} {{ number_format($tx->amount, $tx->currency->code === 'IQD' ? 0 : 2) }}
                 </td>
-                <td class="{{ $tx->type === 'withdrawal' ? 'amount-negative' : 'amount-positive' }}">
-                    $ {{ number_format($tx->amount, 2) }}
+                <td style="color: #666;">{{ number_format($tx->balance_before, 2) }}</td>
+                <td class="{{ $tx->balance_after < 0 ? 'amount-negative' : 'amount-positive' }}">
+                    {{ number_format($tx->balance_after, 2) }}
                 </td>
-                <td style="color: #2563eb;">IQD {{ number_format($tx->amount * ($rates['IQD'] ?? 0), 0) }}</td>
-                <td style="color: #d97706;">€ {{ number_format($tx->amount * ($rates['EUR'] ?? 0), 2) }}</td>
-                <td style="color: #7c3aed;">₺ {{ number_format($tx->amount * ($rates['TRY'] ?? 0), 2) }}</td>
-                <td style="font-size: 12px; color: #666;">
-                    {{ $tx->sender_name ?? '—' }}<br>
-                    <span style="color: #999;">{{ $tx->sender_phone ?? '' }}</span>
+                <td>
+                    <div style="font-size: 13px; font-weight: 600; color: #1a3c5e;">{{ $tx->sender_name ?? '—' }}</div>
+                    @if($tx->sender_phone)
+                    <div style="font-size: 12px; color: #999;">{{ $tx->sender_phone }}</div>
+                    @endif
                 </td>
                 <td style="color: #666; font-size: 12px;">{{ $tx->notes ?? '—' }}</td>
                 <td style="color: #666; font-size: 12px;">{{ $tx->createdBy->name }}</td>
+                <td>
+                    @if($tx->type === 'transfer_out')
+                        <a href="{{ route('receipts.transfer', $tx->id) }}" target="_blank"
+                           style="padding: 4px 10px; background: #2563eb; color: white; border-radius: 6px; font-size: 11px; text-decoration: none; white-space: nowrap;">
+                            🖨️ {{ $isRTL ? 'وصل' : 'Receipt' }}
+                        </a>
+                    @elseif(in_array($tx->type, ['deposit', 'withdrawal']))
+                        <a href="{{ route('receipts.transaction', $tx->id) }}" target="_blank"
+                           style="padding: 4px 10px; background: #1a3c5e; color: white; border-radius: 6px; font-size: 11px; text-decoration: none; white-space: nowrap;">
+                            🖨️ {{ $isRTL ? 'وصل' : 'Receipt' }}
+                        </a>
+                    @else
+                        <span style="color: #999; font-size: 12px;">—</span>
+                    @endif
+                </td>
             </tr>
             @empty
             <tr><td colspan="10" style="text-align: center; color: #999; padding: 40px;">{{ $trans['no_transactions'] }}</td></tr>
@@ -175,10 +202,10 @@
             <div class="form-group">
                 <label>{{ $trans['currency'] }}</label>
                 <div style="display: flex; gap: 8px;">
-                    @foreach(['USD' => '$', 'IQD' => 'IQD', 'EUR' => '€', 'TRY' => '₺'] as $code => $symbol)
-                    <label style="flex:1; text-align:center; padding:8px; border:2px solid #e0e0e0; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;" id="cur-{{ $code }}">
-                        <input type="radio" name="currency_code" value="{{ $code }}" style="display:none;" onchange="selectCurrency('{{ $code }}')" {{ $code === 'USD' ? 'checked' : '' }}>
-                        {{ $symbol }} {{ $code }}
+                    @foreach($currencies as $currency)
+                    <label style="flex:1; text-align:center; padding:8px; border:2px solid #e0e0e0; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;" id="cur-{{ $currency->code }}">
+                        <input type="radio" name="currency_code" value="{{ $currency->code }}" style="display:none;" onchange="selectCurrency('{{ $currency->code }}')" {{ $currency->code === 'USD' ? 'checked' : '' }}>
+                        {{ $currency->symbol }} {{ $currency->code }}
                     </label>
                     @endforeach
                 </div>
@@ -186,26 +213,16 @@
 
             <div class="form-group">
                 <label>{{ $trans['amount'] }}</label>
-                <input type="number" name="amount" id="amount" class="form-control" step="0.01" min="0.01" placeholder="0.00" required oninput="calcEquivalents()">
-            </div>
-
-            <div style="background: #f8f9fa; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;">
-                <div style="color: #666; margin-bottom: 6px; font-weight: 500;">{{ $trans['equivalent'] }}:</div>
-                <div style="font-size: 18px; font-weight: 700; color: #1a3c5e;">$ <span id="usdEquiv">0.00</span></div>
-                <div style="margin-top: 8px; color: #666; font-size: 12px; line-height: 1.8;">
-                    IQD <span id="iqdEquiv">0</span> &nbsp;|&nbsp;
-                    € <span id="eurEquiv">0.00</span> &nbsp;|&nbsp;
-                    ₺ <span id="tryEquiv">0.00</span>
-                </div>
+                <input type="number" name="amount" id="amount" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
             </div>
 
             <div class="grid-2">
                 <div class="form-group">
-                    <label>{{ $trans['sender_name'] }}</label>
-                    <input type="text" name="sender_name" class="form-control" placeholder="{{ $trans['sender_name'] }}">
+                    <label>{{ $isRTL ? 'اسم المرسل / المستلم' : 'Sender / Receiver Name' }} <span style="color: #dc2626;">*</span></label>
+                    <input type="text" name="sender_name" class="form-control" placeholder="{{ $isRTL ? 'الاسم مطلوب' : 'Name is required' }}" required>
                 </div>
                 <div class="form-group">
-                    <label>{{ $trans['sender_phone'] }}</label>
+                    <label>{{ $isRTL ? 'هاتف المرسل / المستلم' : 'Sender / Receiver Phone' }}</label>
                     <input type="text" name="sender_phone" class="form-control">
                 </div>
             </div>
@@ -222,19 +239,62 @@
         </form>
     </div>
 </div>
+
+<!-- Transfer Modal -->
+<div id="transferModal" class="modal-overlay" style="display: none;">
+    <div class="modal" style="width: 500px;">
+        <h2>⇄ {{ $isRTL ? 'تحويل بين العملاء' : 'Transfer Between Clients' }}</h2>
+        <p style="font-size: 13px; color: #666; margin-bottom: 24px; margin-top: -16px;">
+            {{ $isRTL ? 'من' : 'From' }}: <strong>{{ $client->full_name }}</strong>
+        </p>
+        <form method="POST" action="{{ route('transactions.transfer') }}">
+            @csrf
+            <input type="hidden" name="from_client_id" value="{{ $client->id }}">
+
+            <div class="form-group">
+                <label>{{ $isRTL ? 'إلى العميل' : 'To Client' }} <span style="color: #dc2626;">*</span></label>
+                <select name="to_client_id" class="form-control" required>
+                    <option value="">{{ $isRTL ? 'اختر العميل' : 'Select client' }}</option>
+                    @foreach(\App\Models\Client::where('branch_id', auth()->user()->branch_id)->where('id', '!=', $client->id)->orderBy('full_name')->get() as $c)
+                    <option value="{{ $c->id }}">{{ $c->full_name }} ({{ $c->code }})</option>
+                    @endforeach
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>{{ $isRTL ? 'العملة' : 'Currency' }}</label>
+                <div style="display: flex; gap: 8px;">
+                    @foreach($currencies as $currency)
+                    <label style="flex:1; text-align:center; padding:8px; border:2px solid #e0e0e0; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;" id="tcur-{{ $currency->code }}">
+                        <input type="radio" name="currency_code" value="{{ $currency->code }}" style="display:none;" onchange="selectTCurrency('{{ $currency->code }}')" {{ $currency->code === 'USD' ? 'checked' : '' }}>
+                        {{ $currency->symbol }} {{ $currency->code }}
+                    </label>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>{{ $isRTL ? 'المبلغ' : 'Amount' }} <span style="color: #dc2626;">*</span></label>
+                <input type="number" name="amount" class="form-control" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+
+            <div class="form-group">
+                <label>{{ $isRTL ? 'ملاحظات' : 'Notes' }}</label>
+                <input type="text" name="notes" class="form-control" placeholder="{{ $isRTL ? 'سبب التحويل' : 'Reason for transfer' }}">
+            </div>
+
+            <div style="display: flex; gap: 12px; margin-top: 8px;">
+                <button type="button" onclick="document.getElementById('transferModal').style.display='none'" class="btn-secondary" style="flex:1; text-align:center;">{{ $trans['cancel'] }}</button>
+                <button type="submit" class="btn-primary" style="flex:1; text-align:center; background:#2563eb;">⇄ {{ $isRTL ? 'تحويل الآن' : 'Transfer Now' }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 @endsection
 
 @section('scripts')
 <script>
-const rates = {
-    USD: 1,
-    IQD: {{ $rates['IQD'] ?? 0 }},
-    EUR: {{ $rates['EUR'] ?? 0 }},
-    TRY: {{ $rates['TRY'] ?? 0 }},
-};
-
-let selectedCurrency = 'USD';
-
 function selectType(type) {
     ['deposit','withdrawal'].forEach(t => {
         const btn = document.getElementById('btn-' + t);
@@ -251,35 +311,25 @@ function selectType(type) {
 }
 
 function selectCurrency(code) {
-    selectedCurrency = code;
     ['USD','IQD','EUR','TRY'].forEach(c => {
         const el = document.getElementById('cur-' + c);
-        el.style.borderColor = '#e0e0e0';
-        el.style.color = '#444';
-        el.style.background = 'white';
+        if(el) { el.style.borderColor = '#e0e0e0'; el.style.color = '#444'; el.style.background = 'white'; }
     });
     const el = document.getElementById('cur-' + code);
-    el.style.borderColor = '#1a3c5e';
-    el.style.color = '#1a3c5e';
-    el.style.background = '#e8f0fe';
-    calcEquivalents();
+    if(el) { el.style.borderColor = '#1a3c5e'; el.style.color = '#1a3c5e'; el.style.background = '#e8f0fe'; }
 }
 
-function calcEquivalents() {
-    const amount = parseFloat(document.getElementById('amount').value) || 0;
-    let usdAmount = 0;
-    if (selectedCurrency === 'USD') {
-        usdAmount = amount;
-    } else if (rates[selectedCurrency] > 0) {
-        usdAmount = amount / rates[selectedCurrency];
-    }
-    document.getElementById('usdEquiv').textContent = usdAmount.toFixed(2);
-    document.getElementById('iqdEquiv').textContent = Math.round(usdAmount * rates.IQD).toLocaleString();
-    document.getElementById('eurEquiv').textContent = (usdAmount * rates.EUR).toFixed(2);
-    document.getElementById('tryEquiv').textContent = (usdAmount * rates.TRY).toFixed(2);
+function selectTCurrency(code) {
+    ['USD','IQD','EUR','TRY'].forEach(c => {
+        const el = document.getElementById('tcur-' + c);
+        if(el) { el.style.borderColor = '#e0e0e0'; el.style.color = '#444'; el.style.background = 'white'; }
+    });
+    const el = document.getElementById('tcur-' + code);
+    if(el) { el.style.borderColor = '#2563eb'; el.style.color = '#2563eb'; el.style.background = '#eff6ff'; }
 }
 
 selectType('deposit');
 selectCurrency('USD');
+selectTCurrency('USD');
 </script>
 @endsection

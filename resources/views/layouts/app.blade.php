@@ -14,7 +14,7 @@
         .sidebar-logo-icon { width: 40px; height: 40px; background: white; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #1a3c5e; font-size: 18px; flex-shrink: 0; }
         .sidebar-logo-text h2 { font-size: 18px; font-weight: 700; }
         .sidebar-logo-text span { font-size: 11px; opacity: 0.7; }
-        .sidebar-nav { padding: 16px 0; flex: 1; }
+        .sidebar-nav { padding: 16px 0; flex: 1; overflow-y: auto; }
         .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: white; text-decoration: none; font-size: 14px; border-left: 3px solid transparent; transition: all 0.2s; }
         .nav-item:hover { background: rgba(255,255,255,0.1); }
         .nav-item.active { background: rgba(255,255,255,0.15); border-left-color: white; }
@@ -95,11 +95,24 @@
         </div>
 
         <nav class="sidebar-nav">
-            <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">📊 {{ $trans['dashboard'] }}</a>
-            <a href="{{ route('clients.index') }}" class="nav-item {{ request()->routeIs('clients.*') ? 'active' : '' }}">👥 {{ $trans['clients'] }}</a>
-            <a href="{{ route('transactions.index') }}" class="nav-item {{ request()->routeIs('transactions.*') ? 'active' : '' }}">💰 {{ $trans['transactions'] }}</a>
-            <a href="{{ route('exchange.index') }}" class="nav-item {{ request()->routeIs('exchange.*') ? 'active' : '' }}">💱 {{ $trans['exchange_rates'] }}</a>
-            <a href="{{ route('users.index') }}" class="nav-item {{ request()->routeIs('users.*') ? 'active' : '' }}">👤 {{ $trans['users'] }}</a>
+            <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
+                📊 {{ $trans['dashboard'] }}
+            </a>
+            <a href="{{ route('clients.index') }}" class="nav-item {{ request()->routeIs('clients.index') || request()->routeIs('clients.show') ? 'active' : '' }}">
+                👥 {{ $trans['clients'] }}
+            </a>
+            <a href="{{ route('clients.debt') }}" class="nav-item {{ request()->routeIs('clients.debt') ? 'active' : '' }}">
+                ⚠️ {{ $isRTL ? 'الديون' : 'Debts' }}
+            </a>
+            <a href="{{ route('bailment.index') }}" class="nav-item {{ request()->routeIs('bailment.*') ? 'active' : '' }}">
+                🏦 {{ $isRTL ? 'الأمانات' : 'Bailment' }}
+            </a>
+            <a href="{{ route('transactions.index') }}" class="nav-item {{ request()->routeIs('transactions.*') ? 'active' : '' }}">
+                💰 {{ $trans['transactions'] }}
+            </a>
+            <a href="{{ route('users.index') }}" class="nav-item {{ request()->routeIs('users.*') ? 'active' : '' }}">
+                👤 {{ $trans['users'] }}
+            </a>
         </nav>
 
         <div class="sidebar-bottom">

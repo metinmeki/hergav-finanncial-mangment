@@ -7,7 +7,7 @@
         <h1>{{ $trans['transactions'] }}</h1>
         <p>{{ $transactions->count() }} {{ $trans['transactions'] }}</p>
     </div>
-    <a href="{{ route('transactions.daily') }}" class="btn-secondary">📅 {{ $isRTL ? 'التقرير اليومي' : 'Daily Report' }}</a>
+    <a href="{{ route('transactions.daily') }}" class="btn-secondary">📅 {{ $isRTL ? 'تقرير المعاملات' : 'Transaction Report' }}</a>
 </div>
 
 <!-- Filters -->
@@ -40,7 +40,6 @@
         </div>
     </form>
 
-    <!-- Type filter -->
     <div style="display: flex; gap: 8px; margin-top: 12px;">
         @foreach(['all', 'deposit', 'withdrawal'] as $type)
         <a href="?type={{ $type }}&{{ http_build_query(request()->except('type')) }}"
@@ -87,34 +86,69 @@
                 <th>TRY</th>
                 <th>{{ $trans['before'] }}</th>
                 <th>{{ $trans['after'] }}</th>
-                <th>{{ $trans['sender'] }}</th>
+                <th>{{ $isRTL ? 'المرسل / المستلم' : 'Sender / Receiver' }}</th>
                 <th>{{ $isRTL ? 'المرجع' : 'Reference' }}</th>
                 <th>{{ $trans['cashier'] }}</th>
+                <th>{{ $isRTL ? 'وصل' : 'Receipt' }}</th>
             </tr>
         </thead>
         <tbody>
             @forelse($transactions as $tx)
-            @php
-                $branchRates = [];
-                // rates are shared from middleware but we need them here
-            @endphp
             <tr>
                 <td style="color: #666; font-size: 12px; white-space: nowrap;">{{ $tx->created_at->format('Y-m-d H:i') }}</td>
                 <td><a href="{{ route('clients.show', $tx->client_id) }}" style="color: #1a3c5e; font-weight: 500;">{{ $tx->client->full_name }}</a></td>
-                <td><span class="badge {{ $tx->type === 'deposit' ? 'badge-success' : 'badge-danger' }}">{{ $trans[$tx->type] }}</span></td>
-                <td style="font-weight: 600; color: #1a3c5e;">{{ $tx->original_currency }} {{ number_format($tx->original_amount, 2) }}</td>
-                <td class="{{ $tx->type === 'withdrawal' ? 'amount-negative' : 'amount-positive' }}">$ {{ number_format($tx->amount, 2) }}</td>
-                <td style="color: #2563eb; font-size: 12px;">{{ number_format($tx->amount * ($tx->exchange_rate ?? 0), 0) }}</td>
-                <td style="color: #d97706; font-size: 12px;">€ {{ number_format($tx->amount * 0, 2) }}</td>
-                <td style="color: #7c3aed; font-size: 12px;">₺ {{ number_format($tx->amount * 0, 2) }}</td>
-                <td style="color: #666;">$ {{ number_format($tx->balance_before, 2) }}</td>
-                <td class="{{ $tx->balance_after < 0 ? 'amount-negative' : 'amount-positive' }}">$ {{ number_format($tx->balance_after, 2) }}</td>
-                <td style="color: #666; font-size: 12px;">{{ $tx->sender_name ?? '—' }}</td>
+                <td>
+                    @if($tx->type === 'deposit')
+                        <span class="badge badge-success">{{ $trans['deposit'] }}</span>
+                    @elseif($tx->type === 'withdrawal')
+                        <span class="badge badge-danger">{{ $trans['withdrawal'] }}</span>
+                    @elseif($tx->type === 'transfer_in')
+                        <span class="badge badge-info">← {{ $isRTL ? 'تحويل وارد' : 'Transfer In' }}</span>
+                    @elseif($tx->type === 'transfer_out')
+                        <span class="badge badge-warning">→ {{ $isRTL ? 'تحويل صادر' : 'Transfer Out' }}</span>
+                    @endif
+                </td>
+                <td style="font-weight: 600; color: #1a3c5e;">{{ $tx->original_currency ?? $tx->currency->code }} {{ number_format($tx->original_amount ?? $tx->amount, 2) }}</td>
+                <td class="{{ in_array($tx->type, ['withdrawal', 'transfer_out']) ? 'amount-negative' : 'amount-positive' }}">
+                    @if($tx->currency->code === 'USD') $ {{ number_format($tx->amount, 2) }} @else — @endif
+                </td>
+                <td style="color: #2563eb; font-size: 12px;">
+                    @if($tx->currency->code === 'IQD') IQD {{ number_format($tx->amount, 0) }} @else — @endif
+                </td>
+                <td style="color: #d97706; font-size: 12px;">
+                    @if($tx->currency->code === 'EUR') € {{ number_format($tx->amount, 2) }} @else — @endif
+                </td>
+                <td style="color: #7c3aed; font-size: 12px;">
+                    @if($tx->currency->code === 'TRY') ₺ {{ number_format($tx->amount, 2) }} @else — @endif
+                </td>
+                <td style="color: #666;">{{ number_format($tx->balance_before, 2) }}</td>
+                <td class="{{ $tx->balance_after < 0 ? 'amount-negative' : 'amount-positive' }}">{{ number_format($tx->balance_after, 2) }}</td>
+                <td>
+                    <div style="font-size: 13px; font-weight: 600; color: #1a3c5e;">{{ $tx->sender_name ?? '—' }}</div>
+                    @if($tx->sender_phone)
+                    <div style="font-size: 12px; color: #999;">{{ $tx->sender_phone }}</div>
+                    @endif
+                </td>
                 <td style="color: #999; font-size: 11px;">{{ $tx->reference_no }}</td>
                 <td style="color: #666;">{{ $tx->createdBy->name }}</td>
+                <td>
+                    @if($tx->type === 'transfer_out')
+                        <a href="{{ route('receipts.transfer', $tx->id) }}" target="_blank"
+                           style="padding: 4px 10px; background: #2563eb; color: white; border-radius: 6px; font-size: 11px; text-decoration: none; white-space: nowrap;">
+                            🖨️
+                        </a>
+                    @elseif(in_array($tx->type, ['deposit', 'withdrawal']))
+                        <a href="{{ route('receipts.transaction', $tx->id) }}" target="_blank"
+                           style="padding: 4px 10px; background: #1a3c5e; color: white; border-radius: 6px; font-size: 11px; text-decoration: none; white-space: nowrap;">
+                            🖨️
+                        </a>
+                    @else
+                        <span style="color: #999; font-size: 12px;">—</span>
+                    @endif
+                </td>
             </tr>
             @empty
-            <tr><td colspan="13" style="text-align: center; color: #999; padding: 40px;">{{ $trans['no_transactions'] }}</td></tr>
+            <tr><td colspan="14" style="text-align: center; color: #999; padding: 40px;">{{ $trans['no_transactions'] }}</td></tr>
             @endforelse
         </tbody>
     </table>

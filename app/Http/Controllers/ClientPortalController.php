@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Models\Currency;
-use App\Models\ExchangeRate;
+use App\Models\ClientAccount;
+use App\Models\BailmentAccount;
+use App\Models\BailmentTransaction;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -52,43 +54,91 @@ class ClientPortalController extends Controller
         $clientId = Session::get('client_id');
         if (!$clientId) return redirect()->route('portal.login');
 
-        $client   = Client::with(['accounts'])->findOrFail($clientId);
-        $branchId = $client->branch_id;
+        $client     = Client::with(['accounts'])->findOrFail($clientId);
+        $currencies = Currency::whereIn('code', ['USD', 'IQD', 'EUR', 'TRY'])->get();
 
-        $usdCurrency = Currency::where('code', 'USD')->first();
-        $rates       = $this->getRates($branchId, $usdCurrency);
+        // Regular balances
+        $balances = [];
+        foreach ($currencies as $currency) {
+            $account = ClientAccount::where('client_id', $clientId)
+                ->where('currency_id', $currency->id)->first();
+            $balances[$currency->code] = [
+                'symbol'  => $currency->symbol,
+                'balance' => $account ? $account->balance : 0,
+                'color'   => $this->currencyColor($currency->code),
+            ];
+        }
 
-        $usdAccount = $client->accounts->where('currency_id', $usdCurrency->id)->first();
-        $usdBalance = $usdAccount ? $usdAccount->balance : 0;
+        // Bailment balances
+        $bailmentBalances = [];
+        foreach ($currencies as $currency) {
+            $account = BailmentAccount::where('client_id', $clientId)
+                ->where('currency_id', $currency->id)->first();
+            $bailmentBalances[$currency->code] = [
+                'symbol'  => $currency->symbol,
+                'balance' => $account ? $account->balance : 0,
+                'color'   => $this->currencyColor($currency->code),
+            ];
+        }
 
-        $balances = [
-            'USD' => ['symbol' => '$',   'balance' => $usdBalance,                        'color' => '#16a34a'],
-            'IQD' => ['symbol' => 'IQD', 'balance' => $usdBalance * ($rates['IQD'] ?? 0), 'color' => '#2563eb'],
-            'EUR' => ['symbol' => '€',   'balance' => $usdBalance * ($rates['EUR'] ?? 0), 'color' => '#d97706'],
-            'TRY' => ['symbol' => '₺',   'balance' => $usdBalance * ($rates['TRY'] ?? 0), 'color' => '#7c3aed'],
-        ];
+        // Unseen notifications
+        $unseenTransactions = Transaction::with(['currency'])
+            ->where('client_id', $clientId)
+            ->where('seen_by_client', false)
+            ->latest()
+            ->get();
 
-        // Date range filter
+        $unseenBailments = BailmentTransaction::with(['currency'])
+            ->where('client_id', $clientId)
+            ->where('seen_by_client', false)
+            ->latest()
+            ->get();
+
+        // Date filter
         $dateFrom = $request->date_from ?? null;
         $dateTo   = $request->date_to ?? null;
 
         $txQuery = Transaction::with(['currency', 'createdBy'])
-            ->where('client_id', $clientId)
-            ->latest();
-
+            ->where('client_id', $clientId)->latest();
         if ($dateFrom) $txQuery->whereDate('created_at', '>=', $dateFrom);
         if ($dateTo)   $txQuery->whereDate('created_at', '<=', $dateTo);
-
         $transactions     = $txQuery->get();
         $totalDeposits    = $transactions->where('type', 'deposit')->sum('amount');
         $totalWithdrawals = $transactions->where('type', 'withdrawal')->sum('amount');
         $net              = $totalDeposits - $totalWithdrawals;
 
+        $bTxQuery = BailmentTransaction::with(['currency', 'createdBy'])
+            ->where('client_id', $clientId)->latest();
+        if ($dateFrom) $bTxQuery->whereDate('created_at', '>=', $dateFrom);
+        if ($dateTo)   $bTxQuery->whereDate('created_at', '<=', $dateTo);
+        $bailmentTransactions     = $bTxQuery->get();
+        $bailmentTotalDeposits    = $bailmentTransactions->where('type', 'deposit')->sum('amount');
+        $bailmentTotalWithdrawals = $bailmentTransactions->where('type', 'withdrawal')->sum('amount');
+
         return view('portal.dashboard', compact(
-            'client', 'balances', 'rates', 'transactions',
+            'client', 'balances', 'bailmentBalances',
+            'transactions', 'bailmentTransactions',
             'totalDeposits', 'totalWithdrawals', 'net',
-            'dateFrom', 'dateTo'
+            'bailmentTotalDeposits', 'bailmentTotalWithdrawals',
+            'dateFrom', 'dateTo', 'currencies',
+            'unseenTransactions', 'unseenBailments'
         ));
+    }
+
+    public function markSeen(Request $request)
+    {
+        $clientId = Session::get('client_id');
+        if (!$clientId) return response()->json(['error' => 'Unauthorized'], 401);
+
+        Transaction::where('client_id', $clientId)
+            ->where('seen_by_client', false)
+            ->update(['seen_by_client' => true, 'seen_at' => now()]);
+
+        BailmentTransaction::where('client_id', $clientId)
+            ->where('seen_by_client', false)
+            ->update(['seen_by_client' => true, 'seen_at' => now()]);
+
+        return response()->json(['success' => true]);
     }
 
     public function logout()
@@ -97,17 +147,14 @@ class ClientPortalController extends Controller
         return redirect()->route('portal.login');
     }
 
-    private function getRates($branchId, $usdCurrency)
+    private function currencyColor($code)
     {
-        $rates = [];
-        foreach (['IQD', 'EUR', 'TRY'] as $code) {
-            $currency = Currency::where('code', $code)->first();
-            $rate     = ExchangeRate::where('from_currency_id', $usdCurrency->id)
-                ->where('to_currency_id', $currency->id)
-                ->where('branch_id', $branchId)
-                ->latest()->first();
-            $rates[$code] = $rate ? $rate->rate : 0;
-        }
-        return $rates;
+        return match($code) {
+            'USD' => '#16a34a',
+            'IQD' => '#2563eb',
+            'EUR' => '#d97706',
+            'TRY' => '#7c3aed',
+            default => '#666'
+        };
     }
 }

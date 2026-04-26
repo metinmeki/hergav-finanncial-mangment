@@ -4,22 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Transaction extends Model
+class BailmentTransaction extends Model
 {
     protected $fillable = [
         'client_id',
         'branch_id',
         'currency_id',
-        'to_currency_id',
         'type',
         'amount',
-        'to_amount',
-        'exchange_rate',
         'balance_before',
         'balance_after',
-        'original_currency',
-        'original_amount',
-        'original_rate',
         'sender_name',
         'sender_phone',
         'notes',
@@ -28,15 +22,10 @@ class Transaction extends Model
         'created_by',
         'seen_by_client',
         'seen_at',
-        'transfer_to_client_id',
-        'transfer_from_client_id',
-        'transfer_reference',
     ];
 
     protected $casts = [
         'amount'         => 'decimal:4',
-        'to_amount'      => 'decimal:4',
-        'exchange_rate'  => 'decimal:6',
         'balance_before' => 'decimal:4',
         'balance_after'  => 'decimal:4',
         'seen_by_client' => 'boolean',
@@ -53,11 +42,6 @@ class Transaction extends Model
         return $this->belongsTo(Currency::class);
     }
 
-    public function toCurrency()
-    {
-        return $this->belongsTo(Currency::class, 'to_currency_id');
-    }
-
     public function branch()
     {
         return $this->belongsTo(Branch::class);
@@ -66,15 +50,5 @@ class Transaction extends Model
     public function createdBy()
     {
         return $this->belongsTo(User::class, 'created_by');
-    }
-
-    public function transferToClient()
-    {
-        return $this->belongsTo(Client::class, 'transfer_to_client_id');
-    }
-
-    public function transferFromClient()
-    {
-        return $this->belongsTo(Client::class, 'transfer_from_client_id');
     }
 }
